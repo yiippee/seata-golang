@@ -21,9 +21,18 @@ func (undoLog *SqlUndoLog) SetTableMeta(tableMeta schema.TableMeta) {
 	}
 }
 
-type BranchUndoLog struct {
-	Xid string
-	BranchId int64
-	SqlUndoLogs []*SqlUndoLog
+func (undoLog *SqlUndoLog) GetUndoRows() *schema.TableRecords {
+	if undoLog.SqlType == sqlparser.SQLType_UPDATE ||
+		undoLog.SqlType == sqlparser.SQLType_DELETE {
+		return undoLog.BeforeImage
+	} else if undoLog.SqlType == sqlparser.SQLType_INSERT {
+		return undoLog.AfterImage
+	}
+	return nil
 }
 
+type BranchUndoLog struct {
+	Xid         string
+	BranchId    int64
+	SqlUndoLogs []*SqlUndoLog
+}

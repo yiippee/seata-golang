@@ -12,7 +12,7 @@ type LockManager interface {
 	// Acquire lock boolean.
 	AcquireLock(branchSession *session.BranchSession) bool
 
-	// Un lock boolean.
+	// Unlock boolean.
 	ReleaseLock(branchSession *session.BranchSession) bool
 
 	// GlobalSession 是没有锁的，所有的锁都在 BranchSession 上，因为 BranchSession 才
@@ -31,8 +31,8 @@ type LockManager interface {
 
 func Init() {
 	if config.GetStoreConfig().StoreMode == "db" {
-		lockStore := &LockStoreDataBaseDao{engine:config.GetStoreConfig().DBStoreConfig.Engine}
-		lockManager = &DataBaseLocker{LockStore:lockStore}
+		lockStore := &LockStoreDataBaseDao{engine: config.GetStoreConfig().DBStoreConfig.Engine}
+		lockManager = &DataBaseLocker{LockStore: lockStore}
 	} else {
 		lockManager = &MemoryLocker{
 			LockMap:      &sync.Map{},

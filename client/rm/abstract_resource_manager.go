@@ -22,14 +22,14 @@ var (
 )
 
 type AbstractResourceManager struct {
-	RpcClient *getty.RpcRemoteClient
+	RpcClient     *getty.RpcRemoteClient
 	ResourceCache map[string]model.IResource
 }
 
 func NewAbstractResourceManager(client *getty.RpcRemoteClient) AbstractResourceManager {
 	resourceManager := AbstractResourceManager{
-		RpcClient:            client,
-		ResourceCache:        make(map[string]model.IResource),
+		RpcClient:     client,
+		ResourceCache: make(map[string]model.IResource),
 	}
 	go resourceManager.handleRegisterRM()
 	return resourceManager
@@ -56,14 +56,23 @@ func (resourceManager AbstractResourceManager) BranchRegister(branchType meta.Br
 		LockKey:         lockKeys,
 		ApplicationData: applicationData,
 	}
-	resp,err := resourceManager.RpcClient.SendMsgWithResponse(request)
+	resp, err := resourceManager.RpcClient.SendMsgWithResponse(request)
 	if err != nil {
-		return 0,errors.WithStack(err)
+		return 0, errors.WithStack(err)
 	}
 	response := resp.(protocal.BranchRegisterResponse)
-	return response.BranchId,nil
+	if response.ResultCode == protocal.ResultCodeSuccess {
+		return response.BranchId, nil
+	} else {
+		if response.TransactionExceptionCode == meta.TransactionExceptionCodeGlobalTransactionNotExist {
+			return 0, &meta.TransactionException{
+				Message: response.Msg,
+				Code:    meta.TransactionExceptionCodeGlobalTransactionNotExist,
+			}
+		}
+		return 0, errors.New(response.Msg)
+	}
 }
-
 
 func (resourceManager AbstractResourceManager) BranchReport(branchType meta.BranchType, xid string, branchId int64,
 	status meta.BranchStatus, applicationData []byte) error {
@@ -73,7 +82,7 @@ func (resourceManager AbstractResourceManager) BranchReport(branchType meta.Bran
 		Status:          status,
 		ApplicationData: applicationData,
 	}
-	resp,err := resourceManager.RpcClient.SendMsgWithResponse(request)
+	resp, err := resourceManager.RpcClient.SendMsgWithResponse(request)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -84,19 +93,19 @@ func (resourceManager AbstractResourceManager) BranchReport(branchType meta.Bran
 	return nil
 }
 
-func (resourceManager AbstractResourceManager) LockQuery(ctx *context.RootContext,branchType meta.BranchType, resourceId string, xid string,
+func (resourceManager AbstractResourceManager) LockQuery(ctx *context.RootContext, branchType meta.BranchType, resourceId string, xid string,
 	lockKeys string) (bool, error) {
-	return false,nil
+	return false, nil
 }
 
 func (resourceManager AbstractResourceManager) handleRegisterRM() {
 	for {
-		serverAddress := <- resourceManager.RpcClient.GettySessionOnOpenChannel
+		serverAddress := <-resourceManager.RpcClient.GettySessionOnOpenChannel
 		resourceManager.doRegisterResource(serverAddress)
 	}
 }
 
-func  (resourceManager AbstractResourceManager) doRegisterResource(serverAddress string) {
+func (resourceManager AbstractResourceManager) doRegisterResource(serverAddress string) {
 	if resourceManager.ResourceCache == nil || len(resourceManager.ResourceCache) == 0 {
 		return
 	}
@@ -109,7 +118,7 @@ func  (resourceManager AbstractResourceManager) doRegisterResource(serverAddress
 		ResourceIds: resourceManager.getMergedResourceKeys(),
 	}
 
-	resourceManager.RpcClient.RegisterResource(serverAddress,message)
+	resourceManager.RpcClient.RegisterResource(serverAddress, message)
 }
 
 func (resourceManager AbstractResourceManager) getMergedResourceKeys() string {
